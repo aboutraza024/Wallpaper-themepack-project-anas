@@ -13,7 +13,7 @@ Manages **Categories**, **Wallpapers**, **Themes**, **Icons**, and **Widgets**.
 - **Mock S3 service** — future-ready for real `boto3` integration
 
 Tables are created automatically when the app starts (`Base.metadata.create_all`) —
-there is no migration tool to run, which keeps the project simple for beginners.
+there is no migration tool to run
 
 ## Project Structure
 
@@ -94,11 +94,10 @@ Want to add an endpoint? Open the matching `routes_*.py` file.
 | GET    | `/api/v1/categories`                            | List all categories                                    |
 | GET    | `/api/v1/categories/{category}/wallpapers`      | Get **all** wallpapers in a category — by id or name   |
 
-### Getting wallpapers for a category (id or name, no pagination)
+### Getting wallpapers for a category 
 
 `{category}` accepts either the category's numeric id **or** its name, and
-the endpoint always returns every matching wallpaper — there's no `page` /
-`page_size` to deal with:
+the endpoint always returns every matching wallpaper 
 
 ```
 GET /api/v1/categories/3/wallpapers
@@ -152,5 +151,4 @@ uncomment/implement the real upload logic.
   also deletes its themes/icons/widgets; deleting a category also deletes its wallpapers.
 - Standardized JSON envelope on every response: `{"success": bool, "message": str, "data": ...}`.
 - No migration tool is used — tables are created on startup directly from the
-  SQLAlchemy models in `app/models.py`, which keeps the project simple. If you
-  later need real migrations, Alembic can be added without changing the app code.
+  SQLAlchemy models in `app/models.py`, which keeps the project simple. 
