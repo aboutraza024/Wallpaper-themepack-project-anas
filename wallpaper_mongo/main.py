@@ -2,11 +2,14 @@
 Application entrypoint.
 
 Initializes logging, creates the FastAPI app, configures CORS, sets up
-the DB via a lifespan context, and includes the categories/wallpapers routers.
+the MongoDB Motor client via a lifespan context, and includes the
+categories/wallpapers routers.
 
-Key changes from deprecated on_event pattern:
+Key changes from the MySQL version:
   • `@app.on_event("startup/shutdown")` replaced with the modern
     `lifespan` context manager (recommended in FastAPI 0.93+).
+  • No `Base.metadata.create_all()` — MongoDB creates collections and
+    indexes on first write; we only create explicit indexes here.
 """
 from contextlib import asynccontextmanager
 
@@ -14,13 +17,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.database import Base, engine
+from app.database import (
+    COL_CATEGORIES,
+    COL_WALLPAPERS,
+    close_mongo_connection,
+    connect_to_mongo,
+    get_client,
+    ping_db,
+)
 from app.routes_categories import router as category_router
 from app.routes_wallpapers import router as wallpaper_router
 from app.utils import get_logger, setup_logging
-
-# Import models so every table is registered on Base.metadata before create_all()
-import app.models  # noqa: F401
 
 setup_logging()
 logger = get_logger(__name__)
@@ -33,13 +40,22 @@ logger = get_logger(__name__)
 async def lifespan(app: FastAPI):
     # ── startup ────────────────────────────────────────────────────────────
     logger.info("Starting %s in %s mode", settings.PROJECT_NAME, settings.ENVIRONMENT)
-    Base.metadata.create_all(bind=engine)
-    logger.info("Database tables verified/created.")
+    connect_to_mongo()
+
+    await ping_db()
+    logger.info("MongoDB connection verified.")
+
+    # Create indexes (idempotent — safe to run on every startup)
+    db = get_client()[settings.MONGODB_DB_NAME]
+    await db[COL_CATEGORIES].create_index("name", unique=True)
+    await db[COL_WALLPAPERS].create_index("category_id")
+    logger.info("MongoDB indexes verified.")
 
     yield  # ← app runs here
 
     # ── shutdown ───────────────────────────────────────────────────────────
     logger.info("Shutting down %s", settings.PROJECT_NAME)
+    close_mongo_connection()
 
 
 # ---------------------------------------------------------------------------

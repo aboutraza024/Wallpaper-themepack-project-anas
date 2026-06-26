@@ -1,6 +1,6 @@
 """API routes for Wallpaper resources (create, read, update, delete, upload)."""
 from fastapi import APIRouter, Depends, File, Query, UploadFile
-from sqlalchemy.orm import Session
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app import crud
 from app.database import get_db
@@ -51,16 +51,16 @@ async def upload_wallpaper_asset(
     response_model=None,
     status_code=201,
 )
-def create_wallpaper(
+async def create_wallpaper(
     payload: WallpaperCreateRequest,
-    db: Session = Depends(get_db),
+    db: AsyncIOMotorDatabase = Depends(get_db),
 ):
     """
     Creates a wallpaper. If the given category name already exists it is
     reused; otherwise a new category is created automatically.
     """
-    wallpaper = crud.create_wallpaper(db, payload)
-    data = WallpaperResponse.model_validate(wallpaper)
+    wallpaper_dict = await crud.create_wallpaper(db, payload)
+    data = WallpaperResponse(**wallpaper_dict)
     return success_response(data=data, message="Wallpaper created successfully")
 
 
@@ -72,12 +72,12 @@ def create_wallpaper(
     summary="Get full wallpaper details (with nested themes, icons, widgets)",
     response_model=None,
 )
-def get_wallpaper(
-    wallpaper_id: int,
-    db: Session = Depends(get_db),
+async def get_wallpaper(
+    wallpaper_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db),
 ):
-    wallpaper = crud.get_wallpaper_or_404(db, wallpaper_id)
-    data = WallpaperResponse.model_validate(wallpaper)
+    wallpaper_dict = await crud.get_wallpaper_or_404(db, wallpaper_id)
+    data = WallpaperResponse(**wallpaper_dict)
     return success_response(data=data, message="Wallpaper fetched successfully")
 
 
@@ -89,9 +89,9 @@ def get_wallpaper(
     summary="Update a wallpaper (wallpaper_id body mein dein)",
     response_model=None,
 )
-def update_wallpaper(
+async def update_wallpaper(
     payload: WallpaperUpdateRequest,
-    db: Session = Depends(get_db),
+    db: AsyncIOMotorDatabase = Depends(get_db),
 ):
     """
     wallpaper_id request body mein dena zaroori hai (URL mein nahi).
@@ -99,10 +99,10 @@ def update_wallpaper(
     Sirf jo fields bhejo woh update hongi — baaki fields untouched rahengi.
     Themes / icons / widgets ke liye:
       - id omit karo  → naya add hoga
-      - id do          → update ya delete hoga
+      - id dو          → update ya delete hoga
     """
-    wallpaper = crud.update_wallpaper(db, payload)
-    data = WallpaperResponse.model_validate(wallpaper)
+    wallpaper_dict = await crud.update_wallpaper(db, payload)
+    data = WallpaperResponse(**wallpaper_dict)
     return success_response(data=data, message="Wallpaper updated successfully")
 
 
@@ -114,9 +114,9 @@ def update_wallpaper(
     summary="Delete a wallpaper and its related themes, icons, widgets",
     response_model=None,
 )
-def delete_wallpaper(
-    wallpaper_id: int,
-    db: Session = Depends(get_db),
+async def delete_wallpaper(
+    wallpaper_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db),
 ):
-    crud.delete_wallpaper(db, wallpaper_id)
+    await crud.delete_wallpaper(db, wallpaper_id)
     return success_response(data=None, message="Wallpaper deleted successfully")

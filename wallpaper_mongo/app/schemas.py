@@ -1,9 +1,13 @@
 """
 Pydantic schemas — define the shape of API request and response data.
 
-All ids are plain integers (1, 2, 3, ...), matching the database models.
-Every entity's Create / Update / Response schemas live together in this
-one file so the whole API "shape" is easy to scan in a single place.
+Changes from the MySQL version:
+  • All `id` fields are now `str` (the string form of a MongoDB ObjectId).
+  • `wallpaper_id` in sub-document responses is also `str`.
+  • Response schemas no longer use `from_attributes=True` because we build
+    them from plain dicts (not ORM objects).  A helper `from_mongo()` is
+    used in routes instead.
+  • Everything else — validators, envelope, nested structure — is identical.
 """
 from datetime import datetime
 from typing import List, Optional
@@ -12,22 +16,20 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 def _validate_url(value: str) -> str:
-    """Shared URL validator: ensures value starts with http:// or https://."""
     if not (value.startswith("http://") or value.startswith("https://")):
         raise ValueError("URL must start with http:// or https://")
     return value
 
 
 def _validate_url_optional(value: Optional[str]) -> Optional[str]:
-    """Same as _validate_url but allows None for optional URL fields."""
     if value is None:
         return value
     return _validate_url(value)
 
 
-# ----------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Category
-# ----------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 class CategoryBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=150)
 
@@ -36,17 +38,16 @@ class CategoryCreate(CategoryBase):
     pass
 
 
-class CategoryResponse(CategoryBase):
-    id: int
+class CategoryResponse(BaseModel):
+    id: str
+    name: str
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
 
-
-# ----------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Theme
-# ----------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 class ThemeBase(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
@@ -67,26 +68,23 @@ class ThemeBase(BaseModel):
 
 
 class ThemeCreate(ThemeBase):
-    """Schema for creating a theme nested within wallpaper creation."""
     pass
 
 
 class ThemeUpdate(BaseModel):
-    """Schema for partial updates to an existing theme."""
-
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "id": 1,
+                "id": "664f1a2b3c4d5e6f7a8b9c0d",
                 "theme_name": "Light Mode",
                 "theme_image_url": "https://cdn.example.com/themes/light.jpg",
                 "delete": False,
             }
-        },
+        }
     )
 
-    id: Optional[int] = Field(
-        default=None, description="Existing theme id. Omit when adding a new theme."
+    id: Optional[str] = Field(
+        default=None, description="Existing theme ObjectId string. Omit to add a new theme."
     )
     theme_name: Optional[str] = Field(default=None, min_length=1, max_length=255)
     theme_image_url: Optional[str] = Field(default=None, max_length=1024)
@@ -102,17 +100,15 @@ class ThemeUpdate(BaseModel):
 
 
 class ThemeResponse(ThemeBase):
-    id: int
-    wallpaper_id: int
+    id: str
+    wallpaper_id: str
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
 
-
-# ----------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Icon
-# ----------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 class IconBase(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
@@ -133,26 +129,23 @@ class IconBase(BaseModel):
 
 
 class IconCreate(IconBase):
-    """Schema for creating an icon nested within wallpaper creation."""
     pass
 
 
 class IconUpdate(BaseModel):
-    """Schema for partial updates to an existing icon."""
-
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "id": 1,
+                "id": "664f1a2b3c4d5e6f7a8b9c0d",
                 "icon_name": "Home",
                 "icon_url": "https://cdn.example.com/icons/home.png",
                 "delete": False,
             }
-        },
+        }
     )
 
-    id: Optional[int] = Field(
-        default=None, description="Existing icon id. Omit when adding a new icon."
+    id: Optional[str] = Field(
+        default=None, description="Existing icon ObjectId string. Omit to add a new icon."
     )
     icon_name: Optional[str] = Field(default=None, min_length=1, max_length=255)
     icon_url: Optional[str] = Field(default=None, max_length=1024)
@@ -168,17 +161,15 @@ class IconUpdate(BaseModel):
 
 
 class IconResponse(IconBase):
-    id: int
-    wallpaper_id: int
+    id: str
+    wallpaper_id: str
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
 
-
-# ----------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Widget
-# ----------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 class WidgetBase(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
@@ -199,26 +190,23 @@ class WidgetBase(BaseModel):
 
 
 class WidgetCreate(WidgetBase):
-    """Schema for creating a widget nested within wallpaper creation."""
     pass
 
 
 class WidgetUpdate(BaseModel):
-    """Schema for partial updates to an existing widget."""
-
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "id": 1,
+                "id": "664f1a2b3c4d5e6f7a8b9c0d",
                 "widget_name": "Weather",
                 "widget_url": "https://cdn.example.com/widgets/weather.png",
                 "delete": False,
             }
-        },
+        }
     )
 
-    id: Optional[int] = Field(
-        default=None, description="Existing widget id. Omit when adding a new widget."
+    id: Optional[str] = Field(
+        default=None, description="Existing widget ObjectId string. Omit to add a new widget."
     )
     widget_name: Optional[str] = Field(default=None, min_length=1, max_length=255)
     widget_url: Optional[str] = Field(default=None, max_length=1024)
@@ -234,17 +222,15 @@ class WidgetUpdate(BaseModel):
 
 
 class WidgetResponse(WidgetBase):
-    id: int
-    wallpaper_id: int
+    id: str
+    wallpaper_id: str
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
 
-
-# ----------------------------------------------------------------------
-# Wallpaper core fields (used in CREATE)
-# ----------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Wallpaper core fields
+# ---------------------------------------------------------------------------
 class WallpaperCore(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
@@ -266,17 +252,13 @@ class WallpaperCore(BaseModel):
         return _validate_url(value)
 
 
-# ----------------------------------------------------------------------
+
+
+
+# ---------------------------------------------------------------------------
 # Create
-# ----------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 class WallpaperCreateRequest(BaseModel):
-    """
-    Top-level request body for POST /api/v1/wallpapers.
-
-    Category is resolved by name: if it exists it is reused, otherwise
-    it is created on the fly.
-    """
-
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
@@ -315,9 +297,9 @@ class WallpaperCreateRequest(BaseModel):
     widgets: Optional[List[WidgetCreate]] = Field(default=None)
 
 
-# ----------------------------------------------------------------------
-# Update (PATCH-like partial update via PUT — wallpaper_id body mein dein)
-# ----------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Update (PATCH-like partial update via PUT)
+# ---------------------------------------------------------------------------
 class WallpaperUpdateRequest(BaseModel):
     """
     PUT /wallpapers  — wallpaper_id body mein dena zaroori hai.
@@ -329,20 +311,20 @@ class WallpaperUpdateRequest(BaseModel):
 
     Themes / icons / widgets entries:
       - id omit karo  → naya ADD ho ga
-      - id do          → UPDATE ya DELETE ho ga existing entry
+      - id do          → UPDATE ya DELETE ho ga existing sub-document
     """
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "wallpaper_id": 1,
+                "wallpaper_id": "664f1a2b3c4d5e6f7a8b9c0d",
                 "category_name": "Nature",
                 "title": "Updated Forest Pack",
                 "home_wallpaper_url": "https://cdn.example.com/wallpapers/home_new.jpg",
                 "lock_wallpaper_url": "https://cdn.example.com/wallpapers/lock_new.jpg",
                 "themes": [
                     {
-                        "id": 1,
+                        "id": "664f1a2b3c4d5e6f7a8b9c0e",
                         "theme_name": "Light Mode",
                         "theme_image_url": "https://cdn.example.com/themes/light.jpg",
                         "delete": False,
@@ -354,7 +336,7 @@ class WallpaperUpdateRequest(BaseModel):
         }
     )
 
-    wallpaper_id: int = Field(..., description="Wallpaper ka id — required.")
+    wallpaper_id: str = Field(..., description="Wallpaper ka ObjectId — required.")
     category_name: Optional[str] = Field(default=None, max_length=150)
     title: Optional[str] = Field(default=None, max_length=255)
     home_wallpaper_url: Optional[str] = Field(default=None, max_length=1024)
@@ -379,11 +361,11 @@ class WallpaperUpdateRequest(BaseModel):
         return _validate_url(value)
 
 
-# ----------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Response
-# ----------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 class WallpaperResponse(BaseModel):
-    id: int
+    id: str
     title: str
     home_wallpaper_url: str
     lock_wallpaper_url: str
@@ -394,13 +376,11 @@ class WallpaperResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
-
 
 class WallpaperListItemResponse(BaseModel):
     """Lightweight response used in list endpoints (no nested themes/icons/widgets)."""
 
-    id: int
+    id: str
     title: str
     home_wallpaper_url: str
     lock_wallpaper_url: str
@@ -408,12 +388,10 @@ class WallpaperListItemResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
 
-
-# ----------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Misc
-# ----------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 class UploadResponse(BaseModel):
     url: str = Field(..., description="The resulting (mock or real) S3 URL")
     filename: str

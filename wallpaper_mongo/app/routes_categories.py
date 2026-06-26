@@ -1,6 +1,6 @@
 """API routes for Category resources."""
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app import crud
 from app.database import get_db
@@ -15,10 +15,10 @@ router = APIRouter(prefix="/categories", tags=["Categories"])
     summary="List all categories",
     response_model=None,
 )
-def list_categories(db: Session = Depends(get_db)):
+async def list_categories(db: AsyncIOMotorDatabase = Depends(get_db)):
     """Returns all wallpaper categories sorted by name."""
-    categories = crud.list_categories(db)
-    data = [CategoryResponse.model_validate(c) for c in categories]
+    categories = await crud.list_categories(db)
+    data = [CategoryResponse(**c) for c in categories]
     return success_response(data=data, message="Categories fetched successfully")
 
 
@@ -28,37 +28,40 @@ def list_categories(db: Session = Depends(get_db)):
     response_model=None,
     status_code=201,
 )
-def create_category(
+async def create_category(
     payload: CategoryCreate,
-    db: Session = Depends(get_db),
+    db: AsyncIOMotorDatabase = Depends(get_db),
 ):
     """
     Creates a new category.
     Returns 409 Conflict if a category with the same name already exists.
     """
-    category = crud.create_category(db, payload.name)
-    data = CategoryResponse.model_validate(category)
+    category = await crud.create_category(db, payload.name)
+    data = CategoryResponse(**category)
     return success_response(data=data, message="Category created successfully")
 
 
 @router.get(
     "/{category}/wallpapers",
-    summary="Get all wallpapers in a category (by id or by name)",
+    summary="Get all wallpapers in a category (by ObjectId string or by name)",
     response_model=None,
 )
-def get_wallpapers_by_category(category: str, db: Session = Depends(get_db)):
+async def get_wallpapers_by_category(
+    category: str,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
     """
     Returns every wallpaper that belongs to a category.
 
     `category` can be either:
-      - the category's numeric id, e.g. /categories/3/wallpapers
-      - the category's name, e.g. /categories/Nature/wallpapers
+      - the category's ObjectId string  e.g. /categories/664f1a2b3c4d5e6f7a8b9c0d/wallpapers
+      - the category's name             e.g. /categories/Nature/wallpapers
     """
-    category_obj, items = crud.list_wallpapers_by_category(db, category)
-    data = [WallpaperListItemResponse.model_validate(item) for item in items]
+    category_obj, items = await crud.list_wallpapers_by_category(db, category)
+    data = [WallpaperListItemResponse(**item) for item in items]
     return success_response(
         data=data,
-        message=f"Wallpapers for category '{category_obj.name}' fetched successfully",
+        message=f"Wallpapers for category '{category_obj['name']}' fetched successfully",
     )
 
 
@@ -67,20 +70,20 @@ def get_wallpapers_by_category(category: str, db: Session = Depends(get_db)):
     summary="Delete a category and ALL its wallpapers (cascade delete)",
     response_model=None,
 )
-def delete_category(
-    category_id: int,
-    db: Session = Depends(get_db),
+async def delete_category(
+    category_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db),
 ):
     """
     Permanently deletes the category identified by `category_id`.
 
     **Cascade behaviour:**
     Every wallpaper that belongs to this category is also deleted, along with
-    all themes, icons, and widgets attached to those wallpapers.
+    all themes, icons, and widgets embedded inside those wallpapers.
 
     Returns 404 if the category does not exist.
     """
-    deleted_wallpapers = crud.delete_category(db, category_id)
+    deleted_wallpapers = await crud.delete_category(db, category_id)
     return success_response(
         data={"deleted_wallpapers": deleted_wallpapers},
         message=(
