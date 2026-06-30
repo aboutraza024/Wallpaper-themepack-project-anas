@@ -1,7 +1,7 @@
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
 motor==3.6.0
-pymongo==4.10.1
+pymongo
 pydantic==2.10.4
 pydantic-settings==2.7.0
 python-multipart==0.0.20
